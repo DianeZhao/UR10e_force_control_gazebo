@@ -8,7 +8,7 @@
 #include <sstream>
 #include "math.h"
 
-Eigen::VectorXd ComputedTorque_Ftip(const Eigen::VectorXd& thetalist, const Eigen::VectorXd& dthetalist, const Eigen::VectorXd& eint,
+Eigen::VectorXd ComputedTorque_Ftip(const Eigen::VectorXd& thetalist, const Eigen::VectorXd& dthetalist, const Eigen::VectorXd& ddthetalist, const Eigen::VectorXd& eint,
 		const Eigen::VectorXd& g, const std::vector<Eigen::MatrixXd>& Mlist, const std::vector<Eigen::MatrixXd>& Glist,
 		const Eigen::MatrixXd& Slist, const Eigen::VectorXd& thetalistd, const Eigen::VectorXd& dthetalistd, const Eigen::VectorXd& ddthetalistd,
 		const Eigen::VectorXd& Ftip , double Kp, double Ki, double Kd);
@@ -79,7 +79,7 @@ public:
         if(flag == false)
         {
           ros::Rate loop_rate(1000);
-          Eigen::VectorXd grav = ComputedTorque_Ftip(thetalist, dthetalist, eint, gravity, Mlist, Glist, Slist, thetalistd, dthetalistd, ddthetalistd, Ftip, Kp, Ki, Kd);
+          Eigen::VectorXd grav = ComputedTorque_Ftip(thetalist, dthetalist, ddthetalist, eint, gravity, Mlist, Glist, Slist, thetalistd, dthetalistd, ddthetalistd, Ftip, Kp, Ki, Kd);
           effort1.data = grav(0);
           effort2.data = grav(1);
           effort3.data = grav(2);
@@ -119,7 +119,7 @@ public:
             thetalistd = thetamatd.row(i);
             dthetalistd = dthetamatd.row(i);
             ddthetalistd = ddthetamatd.row(i);
-            Eigen::VectorXd torque = ComputedTorque_Ftip(thetalist, dthetalist, eint, gravity, Mlist, Glist, Slist, thetalistd, dthetalistd, ddthetalistd, Ftip, Kp, Ki, Kd);
+            Eigen::VectorXd torque = ComputedTorque_Ftip(thetalist, dthetalist, ddthetalist, eint, gravity, Mlist, Glist, Slist, thetalistd, dthetalistd, ddthetalistd, Ftip, Kp, Ki, Kd);
             effort1.data = torque(0);
             effort2.data = torque(1);
             effort3.data = torque(2);
@@ -207,14 +207,16 @@ int main(int argc, char **argv)
 
 
 // 연산이 느림 -> cpu 성능에 따라 달라짐
-Eigen::VectorXd ComputedTorque_Ftip(const Eigen::VectorXd& thetalist, const Eigen::VectorXd& dthetalist, const Eigen::VectorXd& eint,
+Eigen::VectorXd ComputedTorque_Ftip(const Eigen::VectorXd& thetalist, const Eigen::VectorXd& dthetalist, const Eigen::VectorXd& ddthetalist, const Eigen::VectorXd& eint,
 		const Eigen::VectorXd& g, const std::vector<Eigen::MatrixXd>& Mlist, const std::vector<Eigen::MatrixXd>& Glist,
 		const Eigen::MatrixXd& Slist, const Eigen::VectorXd& thetalistd, const Eigen::VectorXd& dthetalistd, const Eigen::VectorXd& ddthetalistd,
 		const Eigen::VectorXd& Ftip , double Kp, double Ki, double Kd) {
 
 		Eigen::VectorXd e = thetalistd - thetalist;  // position err
 		Eigen::VectorXd tau_feedforward = mr::MassMatrix(thetalist, Mlist, Glist, Slist)*(Kp*e + Ki * (eint + e) + Kd * (dthetalistd - dthetalist));
-		Eigen::VectorXd tau_inversedyn = mr::InverseDynamics(thetalist, dthetalist, ddthetalistd, g, Ftip, Mlist, Glist, Slist);
+		//Eigen::VectorXd tau_inversedyn = mr::InverseDynamics(thetalist, dthetalist, ddthetalistd, g, Ftip, Mlist, Glist, Slist);
+    Eigen::VectorXd tau_inversedyn = mr::InverseDynamics(thetalist, dthetalist, ddthetalist, g, Ftip, Mlist, Glist, Slist);
+
 
 		Eigen::VectorXd tau_computed = tau_feedforward + tau_inversedyn;
 		return tau_computed;
