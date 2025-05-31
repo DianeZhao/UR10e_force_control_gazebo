@@ -130,7 +130,7 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(10);
   spinner.start();
 
-  setup();
+  setup();//including the variable from parameter.cpp
   force_control_client_subscriber force_node;
   force_node.run();
   
@@ -149,5 +149,6 @@ Eigen::VectorXd ComputedTorque_Ftip(const Eigen::VectorXd& thetalist, const Eige
 		Eigen::VectorXd tau_inversedyn = mr::InverseDynamics(thetalist, dthetalist, ddthetalistd, g, Ftip, Mlist, Glist, Slist);
 
 		Eigen::VectorXd tau_computed = tau_feedforward + tau_inversedyn;
+    //Eigen::VectorXd tau_computed = tau_inversedyn;
 		return tau_computed;
               }
