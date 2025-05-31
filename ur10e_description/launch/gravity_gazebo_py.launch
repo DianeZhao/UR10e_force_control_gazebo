@@ -38,7 +38,7 @@
     <remap from="/joint_states" to="/ur10e/joint_states" />
   </node>
 
-  <node name="gravity_comp" pkg="ur10e_force_control" type="gravity_comp"/>
+  <!-- <node name="gravity_comp" pkg="ur10e_force_control" type="gravity_comp.py"/> -->
 
 
   <rosparam file="$(find ur10e_description)/controller/arm_controller_ur10e.yaml" command="load"/>

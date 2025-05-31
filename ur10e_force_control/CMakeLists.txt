@@ -19,7 +19,11 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning
   moveit_ros_planning_interface
   moveit_visual_tools
+
+  rospy
 )
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 
 
 catkin_package(
@@ -40,6 +44,10 @@ catkin_package(
     system_lib
 )
 
+catkin_install_python(PROGRAMS
+  src/gravity_comp.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 
 include_directories(

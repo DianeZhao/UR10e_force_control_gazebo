@@ -75,6 +75,8 @@
   <exec_depend>moveit_ros_planning</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
   <exec_depend>moveit_visual_tools</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>python3</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
