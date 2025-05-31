@@ -46,6 +46,7 @@ catkin_package(
 
 catkin_install_python(PROGRAMS
   src/gravity_comp.py
+  src/interactive_marker.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
