@@ -63,6 +63,8 @@ if __name__ == "__main__":
     #                              FrankaState, franka_state_callback)
     listener = tf.TransformListener()
     link_name = "base_link"#rospy.get_param("~link_name")#??????
+    # The header.frame_id is NOT the pose’s own frame.
+    # It’s the frame that this pose is defined with respect to.
     
     #"ee_link"
     #maybe the root of the world????
@@ -73,7 +75,7 @@ if __name__ == "__main__":
     # state_sub.unregister()#???IMPORTANT!
 
     pose_pub = rospy.Publisher(
-        "desired_pose", PoseStamped, queue_size=10)
+        "desired_pose", PoseStamped, queue_size=10)#TOPIC: desired_pose
     
     server = InteractiveMarkerServer("desired_pose_marker")
     
