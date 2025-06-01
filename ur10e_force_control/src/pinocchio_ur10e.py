@@ -28,8 +28,25 @@ ee_pose = data.oMf[frame_id]  # This is an SE3 object
 translation = ee_pose.translation
 quaternion = pin.Quaternion(ee_pose.rotation)
 
+
 print("Position:", translation)
 print("Orientation (quaternion):", quaternion.coeffs())  # [x, y, z, w]
+
+q = np.array([-1.51230768e-02,5.59536066e-01,-2.94963502e-02,-6.21821317e+00,-1.43756543e-04,-1.22066578e-05])
+pin.forwardKinematics(model, data, q)
+pin.updateFramePlacements(model, data) 
+# Get pose of a specific frame (e.g. 'ee_link')
+frame_name = "ee_link"
+frame_id = model.getFrameId(frame_name)
+ee_pose = data.oMf[frame_id]  # This is an SE3 object
+
+# Extract translation and quaternion
+translation = ee_pose.translation
+quaternion = pin.Quaternion(ee_pose.rotation)
+
+print("Position:", translation)
+print("Orientation (quaternion):", quaternion.coeffs())  # [x, y, z, w]
+
 #-----------------------------------------------------------------------------------------------------------
 # MODERN ROBOTICS CONVENTIONS
 #-----------------------------------------------------------------------------------------------------------
