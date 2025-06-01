@@ -4,12 +4,15 @@ import rospy
 import numpy as np
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
+import pinocchio as pin
 #from .parameter import Mlist, Glist, Slist
 # from ur10e_force_msgs.msg import ForceCmd  # Assuming this message exists
 import modern_robotics as mr  # Must be installed separately
+from geometry_msgs.msg import PoseStamped
 
 JOINT_SIZE = 6
 gravity = np.array([0.0, 0.0, -9.8])
+urdf_path = "/home/danningzhao/modern_robotics_ws/src/UR10e_force_control_gazebo/ur10e_description/urdf/ur10e.urdf"
 
 m01 = np.array([
     [1, 0, 0, 0],
@@ -118,6 +121,11 @@ Slist = np.array([
 
 class ForceControlClientSubscriber:
     def __init__(self):
+        
+        #model = pin.buildModelsFromUrdf(urdf_path) returns a tuple, kinematic model, collsision model and visual model
+        self.model = pin.buildModelFromUrdf(urdf_path) #only kinematic
+        self.data = self.model.createData()
+        
         self.joint_position = np.zeros(JOINT_SIZE)
         self.joint_velocity = np.zeros(JOINT_SIZE)
 
@@ -128,7 +136,7 @@ class ForceControlClientSubscriber:
         self.thetalistd = np.zeros(JOINT_SIZE)
         self.dthetalistd = np.zeros(JOINT_SIZE)
         self.ddthetalistd = np.zeros(JOINT_SIZE)
-        self.Ftip = np.zeros(6)
+        self.Ftip = np.zeros(JOINT_SIZE)
         #Integrated error
         self.eint = np.zeros(JOINT_SIZE)
     
@@ -136,7 +144,15 @@ class ForceControlClientSubscriber:
         self.Kp = 10
         self.Ki = 0
         self.Kd = 5
-
+        ###################TODO: define cartesian_stiffness, cartesian_damping################################
+        ###################TODO: nullspace ################################
+        ###################TODO: ###########################################
+        self.ee_pos =np.zeros(JOINT_SIZE)
+        self.ee_pos_d =np.zeros(JOINT_SIZE)
+        self.ee_ort =np.zeros(JOINT_SIZE)
+        self.ee_ort_d =np.zeros(JOINT_SIZE)
+        
+        
         self.gravity = np.array([0, 0, -9.81])
         ####Module depended cosntant params
         self.Mlist = Mlist
@@ -145,7 +161,7 @@ class ForceControlClientSubscriber:
         ##
 
         rospy.Subscriber("/ur10e/joint_states", JointState, self.ur_callback)
-        #rospy.Subscriber("/ur10e/joint_states", JointState, self.ur_callback) #TODO: receive the target pose of the interactive marker
+        rospy.Subscriber("/desired_pose", JointState, self.desired_pose_callback) #TODO: receive the target pose of the interactive marker
 
         self.publishers = [
             rospy.Publisher("/ur10e/shoulder_pan_joint_effort_controller/command", Float64, queue_size=10),
@@ -166,6 +182,15 @@ class ForceControlClientSubscriber:
             msg.velocity[2], msg.velocity[1], msg.velocity[0],
             msg.velocity[3], msg.velocity[4], msg.velocity[5]
         ])
+        
+    def desired_pose_callback(self, msg: PoseStamped):
+        # Extract translation
+        position = msg.pose.position
+        self.ee_pos_d = np.array([position.x, position.y, position.z])
+
+        # Extract orientation (quaternion)
+        orientation = msg.pose.orientation
+        self.ee_ort_d = np.array([orientation.w, orientation.x, orientation.y, orientation.z])
 
     def run(self):
         rate = rospy.Rate(1000)
@@ -185,14 +210,26 @@ class ForceControlClientSubscriber:
         e = self.thetalistd - self.thetalist
         self.eint += e  # Integrate error
 
-        M = mr.MassMatrix(self.thetalist, self.Mlist, self.Glist, self.Slist)
-        tau_ff = M @ (self.Kp * e + self.Ki * self.eint + self.Kd * (self.dthetalistd - self.dthetalist))
+        # M = mr.MassMatrix(self.thetalist, self.Mlist, self.Glist, self.Slist)
+        # tau_ff1 = M @ (self.Kp * e + self.Ki * self.eint + self.Kd * (self.dthetalistd - self.dthetalist))
 
-        tau_inv_dyn = mr.InverseDynamics(self.thetalist, self.dthetalist, self.ddthetalistd,
-                                         self.gravity, self.Ftip, self.Mlist, self.Glist, self.Slist)
+        # tau_inv_dyn1 = mr.InverseDynamics(self.thetalist, self.dthetalist, self.ddthetalistd,
+        #                                  self.gravity, self.Ftip, self.Mlist, self.Glist, self.Slist)
 
-        return tau_ff + tau_inv_dyn
+        # return tau_ff + tau_inv_dyn
+        
+        # Mass matrix
+        M = pin.crba(self.model, self.data, self.thetalist)
+        # Control acceleration (PD+I law)
+        tau_ff2 = M @ (self.Kp * e + self.Kd * (self.dthetalistd - self.dthetalist) + self.Ki * self.eint)
 
+        # print("tau1 ", tau_ff1)
+        # print("tau2 ", tau_ff2)
+        # Nonlinear effects (Coriolis + Gravity)
+        tau_inv_dyn2 = pin.rnea(self.model, self.data, self.thetalist, self.dthetalist, np.zeros(JOINT_SIZE))
+        # tau = tau_ff1 + tau_inv_dyn1
+        tau = tau_ff2 + tau_inv_dyn2
+        return tau
 
 if __name__ == "__main__":
     rospy.init_node("ur10e_force_control_client")
