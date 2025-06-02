@@ -13,118 +13,17 @@ from geometry_msgs.msg import PoseStamped
 JOINT_SIZE = 6
 gravity = np.array([0.0, 0.0, -9.8])
 urdf_path = "/home/danningzhao/modern_robotics_ws/src/UR10e_force_control_gazebo/ur10e_description/urdf/ur10e.urdf"
-
-m01 = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 1, 0.1810],
-    [0, 0, 0, 1]
-])
-
-m12 = np.array([
-    [0, 0, 1, 0.3065],
-    [0, 1, 0, 0.1760],
-    [-1, 0, 0, 0],
-    [0, 0, 0, 1]
-])
-
-m23 = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, -0.1370],
-    [0, 0, 1, 0.5920],
-    [0, 0, 0, 1]
-])
-
-m34 = np.array([
-    [0, 0, 1, 0],
-    [0, 1, 0, 0.135],
-    [-1, 0, 0, 0.2855],
-    [0, 0, 0, 1]
-])
-
-m45 = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 0, 1, 0.12],
-    [0, 0, 0, 1]
-])
-
-m56 = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, 0.092],
-    [0, 0, 1, 0],
-    [0, 0, 0, 1]
-])
-
-m67 = np.array([
-    [1, 0, 0, 0],
-    [0, 0, 1, 0.025],
-    [0, -1, 0, 0],
-    [0, 0, 0, 1]
-])
-
-G1 = np.identity(6)
-G1[0, 0] *= 0.03147431257693659
-G1[1, 1] *= 0.03147431257693659
-G1[2, 2] *= 0.021875625
-G1[3, 3] *= 7.778
-G1[4, 4] *= 7.778
-G1[5, 5] *= 7.778
-
-G2 = np.identity(6)
-G2[0, 0] *= 0.4230737407704359
-G2[1, 1] *= 0.4230737407704359
-G2[2, 2] *= 0.036365625
-G2[3, 3] *= 12.93
-G2[4, 4] *= 12.93
-G2[5, 5] *= 12.93
-
-G3 = np.identity(6)
-G3[0, 0] *= 0.11059036576383598
-G3[1, 1] *= 0.11059036576383598
-G3[2, 2] *= 0.010884375
-G3[3, 3] *= 3.87
-G3[4, 4] *= 3.87
-G3[5, 5] *= 3.87
-
-G4 = np.identity(6)
-G4[0, 0] *= 0.005108247956699999
-G4[1, 1] *= 0.005108247956699999
-G4[2, 2] *= 0.0055125
-G4[3, 3] *= 1.96
-G4[4, 4] *= 1.96
-G4[5, 5] *= 1.96
-
-G5 = np.copy(G4)
-
-G6 = np.identity(6)
-G6[0, 0] *= 0.00014434577559500002
-G6[1, 1] *= 0.00014434577559500002
-G6[2, 2] *= 0.000204525
-G6[3, 3] *= 0.202
-G6[4, 4] *= 0.202
-G6[5, 5] *= 0.202
-
-Mlist = [m01, m12, m23, m34, m45, m56, m67]#4x24
-Glist = [G1, G2, G3, G4, G5, G6]#6x36
-
-Slist = np.array([
-    [0,    0,    0,    0,     0,     0],
-    [0,    1,    1,    1,     0,     1],
-    [1,    0,    0,    0,    -1,     0],
-    [0, -0.1810, -0.1810, -0.1810, -0.1760, -0.0610],
-    [0,    0,    0,    0,   1.1840,    0],
-    [0,    0, 0.6130, 1.1840,   0,   1.1840]
-])
-
+FRAME_NAME = "ee_link"
 
 
 class ForceControlClientSubscriber:
     def __init__(self):
         
         #model = pin.buildModelsFromUrdf(urdf_path) returns a tuple, kinematic model, collsision model and visual model
+        #########################USE PINnOCHIO#######################################
         self.model = pin.buildModelFromUrdf(urdf_path) #only kinematic
         self.data = self.model.createData()
+        self.frame_id = self.model.getFrameId(FRAME_NAME)
         
         self.joint_position = np.zeros(JOINT_SIZE)
         self.joint_velocity = np.zeros(JOINT_SIZE)
@@ -144,24 +43,31 @@ class ForceControlClientSubscriber:
         self.Kp = 10
         self.Ki = 0
         self.Kd = 5
-        ###################TODO: define cartesian_stiffness, cartesian_damping################################
+        ###################TODO: define cartesian_stiffness, cartesian_damping#############################
+        # Assuming this is defined elsewhere:
+        #self.cartesian_stiffness_target_array = np.array([300, 300, 300, 50, 50, 50])
+        self.cartesian_stiffness_target_array = np.array([300, 300, 300, 50, 50, 50])
+        self.cartesian_stiffness_target = np.diag(self.cartesian_stiffness_target_array)
+        self.cartesian_damping_target_array = 2.0 * np.sqrt(self.cartesian_stiffness_target_array)
+        self.cartesian_damping_target = np.diag(self.cartesian_damping_target_array)
         ###################TODO: nullspace ################################
         ###################TODO: ###########################################
-        self.ee_pos =np.zeros(JOINT_SIZE)
-        self.ee_pos_d =np.zeros(JOINT_SIZE)
-        self.ee_ort =np.zeros(JOINT_SIZE)
-        self.ee_ort_d =np.zeros(JOINT_SIZE)
+        self.ee_pose = None # to hold the pinocchio pose
+        self.ee_pos =np.zeros(3)
+        self.ee_pos_d =None
+        self.ee_ort =None
+        self.ee_ort_d =None
         
         
         self.gravity = np.array([0, 0, -9.81])
         ####Module depended cosntant params
-        self.Mlist = Mlist
-        self.Glist = Glist
-        self.Slist = Slist
-        ##
+        # self.Mlist = Mlist
+        # self.Glist = Glist
+        # self.Slist = Slist
+        # ##
 
         rospy.Subscriber("/ur10e/joint_states", JointState, self.ur_callback)
-        rospy.Subscriber("/desired_pose", JointState, self.desired_pose_callback) #TODO: receive the target pose of the interactive marker
+        rospy.Subscriber("/desired_pose", PoseStamped, self.desired_pose_callback) #TODO: receive the target pose of the interactive marker
 
         self.publishers = [
             rospy.Publisher("/ur10e/shoulder_pan_joint_effort_controller/command", Float64, queue_size=10),
@@ -190,47 +96,126 @@ class ForceControlClientSubscriber:
 
         # Extract orientation (quaternion)
         orientation = msg.pose.orientation
-        self.ee_ort_d = np.array([orientation.w, orientation.x, orientation.y, orientation.z])
+        # self.ee_ort_d = np.array([orientation.x, orientation.y, orientation.z, orientation.w])
+        # Construct Pinocchio quaternion from [x, y, z, w]
+        self.ee_ort_d = pin.Quaternion(np.array([
+            orientation.x,
+            orientation.y,
+            orientation.z,
+            orientation.w
+        ]))
+        #rospy.logwarn(f"target: pos = {self.ee_pos_d}, quat = {self.ee_ort_d}")
+
 
     def run(self):
         rate = rospy.Rate(1000)
         while not rospy.is_shutdown():
+            
             self.thetalist = self.joint_position
+            #rospy.logwarn(f"thetalist: {self.thetalist}")
             self.dthetalist = self.joint_velocity
-
+            ##Q: how the subscriber works
+            pin.forwardKinematics(self.model, self.data, self.thetalist)
+            pin.updateFramePlacements(self.model, self.data) 
+            self.ee_pose = self.data.oMf[self.frame_id]
+            self.ee_pos = self.ee_pose.translation
+            self.ee_ort = pin.Quaternion(self.ee_pose.rotation)
+            if(self.ee_ort_d is None or self.ee_pos_d is None):
+                self.ee_ort_d = pin.Quaternion(self.ee_pose.rotation)
+                self.ee_pos_d = self.ee_pose.translation
+            # rospy.logwarn(f"orient: {self.ee_pose}")
+            # print(self.ee_ort) (x,y,z,w)
+            
             tau = self.computed_torque_ftip()
 
             for i in range(JOINT_SIZE):
                 self.publishers[i].publish(Float64(tau[i]))
 
-            rospy.logwarn(f"Torques: {tau}")
+            #rospy.logwarn(f"Torques: {tau}")
             rate.sleep()
 
+    
+    
     def computed_torque_ftip(self):
-        e = self.thetalistd - self.thetalist
-        self.eint += e  # Integrate error
+            e = self.thetalistd - self.thetalist
+            self.eint += e  # Integrate error
 
-        # M = mr.MassMatrix(self.thetalist, self.Mlist, self.Glist, self.Slist)
-        # tau_ff1 = M @ (self.Kp * e + self.Ki * self.eint + self.Kd * (self.dthetalistd - self.dthetalist))
+            #########################################FEEDFOWARD OF JOINT SPACE#########################################
+            # Mass matrix
+            M = pin.crba(self.model, self.data, self.thetalist)
+            # Control acceleration (PD+I law)
+            tau_ff2 = M @ (self.Kp * e + self.Kd * (self.dthetalistd - self.dthetalist) + self.Ki * self.eint)
+            ###########################################DYNAMIC COMPENSTTION#########################################
+            # Nonlinear effects (Coriolis + Gravity)
+            tau_inv_dyn2 = pin.rnea(self.model, self.data, self.thetalist, self.dthetalist, np.zeros(JOINT_SIZE))
+            # tau = tau_ff1 + tau_inv_dyn1
+            #####################################Cartesian Impedance Control#########################################
+            # rospy.logwarn(f"error pos: {self.ee_pos}")
+            # rospy.logwarn(f"error pos: {self.ee_pos_d}")##Q:it seems like at the first callback, self.ee_pos_d is not updated yet by marker
+            error_pos = self.ee_pos - self.ee_pos_d
+            error_rot_base = compute_orientation_error(self.ee_ort, self.ee_ort_d, self.ee_pose) 
+            error_pos = error_pos.reshape(3, 1)
+            error_rot_base = error_rot_base.reshape(3, 1)
+            error = np.vstack((error_pos, error_rot_base))
+            
+            jacobian = pin.computeFrameJacobian(self.model, self.data, self.thetalist, self.frame_id, pin.ReferenceFrame.WORLD)
+            #Q:WHY?
+            # 1. Compute end-effector spatial velocity
+            velocity = jacobian @ self.dthetalist  # shape (6,)
+            velocity = velocity.reshape((6,1))
+            # 2. Compute desired Cartesian wrench
+            F_ee_des = -self.cartesian_stiffness_target @ error #- self.cartesian_damping_target @ velocity  # shape (6,), the result is 6,6
+            # rospy.logwarn(f"F_ee_des: {F_ee_des}")
+            tau_task = jacobian.T @ F_ee_des
+            # rospy.logwarn(f"tau_task: {tau_task}")
+            print("error_pos:", error_pos)
+            print("error_rot_base:", error_rot_base)
+            print("error:", error)
+            print("jacobian:", jacobian.shape)
+            print("dthetalist:", self.dthetalist.shape)
+            print("velocity:", velocity.shape)
+            print("cartesian_stiffness_target:", self.cartesian_stiffness_target.shape)
+            print("cartesian_damping_target:", self.cartesian_damping_target.shape)
+            print("F_ee_des:", F_ee_des.shape)
 
-        # tau_inv_dyn1 = mr.InverseDynamics(self.thetalist, self.dthetalist, self.ddthetalistd,
-        #                                  self.gravity, self.Ftip, self.Mlist, self.Glist, self.Slist)
-
-        # return tau_ff + tau_inv_dyn
+            ######################################TODO: NullSpace###############################################################
+            ######################################TODO: Tau tool###############################################################
+            
+            ## Q: how to make sure they are actually read before we call this function?????self.ee_pose is an SE3 object
+            # rospy.logwarn(f"error pos: {error_pos}")
+            #rospy.logwarn(f"error orient: {error_rot_base}")
+            
+            
+            #tau = tau_task + tau_ff2 + tau_inv_dyn2
+            tau_task = tau_task.flatten()
+            tau = tau_task + tau_inv_dyn2
+            # print("tau_inv_dyn2:", tau_inv_dyn2.shape) #(6,) for publishing
+            
+            #tau = tau_inv_dyn2
+            return tau
         
-        # Mass matrix
-        M = pin.crba(self.model, self.data, self.thetalist)
-        # Control acceleration (PD+I law)
-        tau_ff2 = M @ (self.Kp * e + self.Kd * (self.dthetalistd - self.dthetalist) + self.Ki * self.eint)
+def compute_orientation_error(orientation: pin.Quaternion, orientation_d: pin.Quaternion, transform: pin.SE3):
+        # Ensure shortest rotation (same hemisphere)
+        # if orientation_d.coeffs().dot(orientation.coeffs()) < 0.0:
+        #     orientation.coeffs()[:] *= -1.0  # Flip quaternion, but readonly
+        if orientation_d.coeffs().dot(orientation.coeffs()) < 0.0:
+            orientation = pin.Quaternion(-orientation.coeffs())
 
-        # print("tau1 ", tau_ff1)
-        # print("tau2 ", tau_ff2)
-        # Nonlinear effects (Coriolis + Gravity)
-        tau_inv_dyn2 = pin.rnea(self.model, self.data, self.thetalist, self.dthetalist, np.zeros(JOINT_SIZE))
-        # tau = tau_ff1 + tau_inv_dyn1
-        tau = tau_ff2 + tau_inv_dyn2
-        return tau
+        # Compute the difference quaternion: q_err = inv(q) * q_des
+        q_error = orientation.inverse() * orientation_d
+        #rospy.logwarn(f"q error: {q_error}")
+        # Take the imaginary part (x, y, z) of the error quaternion
+        x,y,z,w = q_error.coeffs()
+        error_rot = np.array([x,y,z])
 
+        # Transform the error to the base frame: -R * error
+        error_rot_base = -transform.rotation @ error_rot
+        # This works as expected, because NumPy treats a (3,) array like a column vector when used with matrix multiplication (@). 
+        # So if transform.rotation is a (3, 3) matrix, then: @ error_rot is valid
+        # The result is a (3,) array (still flat)
+
+        return error_rot_base
+    
 if __name__ == "__main__":
     rospy.init_node("ur10e_force_control_client")
     node = ForceControlClientSubscriber()
