@@ -53,7 +53,7 @@ def processFeedback(feedback):#Called when marker is moved
                                           position_limits[2][1]]),
                                           position_limits[2][0]])
         marker_pose.pose.orientation = feedback.pose.orientation#update the marker_pose, but doesn't actually publish it
-        print(marker_pose.pose.orientation)
+        # print(marker_pose.pose.orientation)
     #server.applyChanges()
 
 
