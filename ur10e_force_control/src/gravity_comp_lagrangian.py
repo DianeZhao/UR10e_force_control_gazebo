@@ -154,7 +154,7 @@ class ForceControlClientSubscriber:
         self.ee_pos_d =np.array([1.16844, 0.291643,1.57469])
         # self.ee_ort =np.zeros(JOINT_SIZE)
         # self.ee_ort_d =np.zeros(JOINT_SIZE)
-        self.cartesian_stiffness_target_array = np.array([300, 300, 300, 50, 50, 50])
+        self.cartesian_stiffness_target_array = np.array([100, 100, 100, 10, 10, 10])
         self.cartesian_stiffness_target = np.diag(self.cartesian_stiffness_target_array)
         self.cartesian_damping_target_array = 2.0 * np.sqrt(self.cartesian_stiffness_target_array)
         self.cartesian_damping_target = np.diag(self.cartesian_damping_target_array)
@@ -167,7 +167,7 @@ class ForceControlClientSubscriber:
         # ##
 
         rospy.Subscriber("/ur10e/joint_states", JointState, self.ur_callback)
-        rospy.Subscriber("/desired_pose", JointState, self.desired_pose_callback) #TODO: receive the target pose of the interactive marker
+        rospy.Subscriber("/desired_pose", PoseStamped, self.desired_pose_callback) #TODO: receive the target pose of the interactive marker
 
         self.publishers = [
             rospy.Publisher("/ur10e/shoulder_pan_joint_effort_controller/command", Float64, queue_size=10),
@@ -204,13 +204,13 @@ class ForceControlClientSubscriber:
             self.thetalist = self.joint_position
             self.dthetalist = self.joint_velocity
             
-            # pin.forwardKinematics(self.model, self.data, self.thetalist)
-            # pin.updateFramePlacements(self.model, self.data)
-            # self.jacobian = pin.computeFrameJacobian(self.model, self.data, self.thetalist, self.frame_id, pin.ReferenceFrame.WORLD)
-            # self.ee_pose = self.data.oMf[self.frame_id]
-            # self.ee_pos = self.ee_pose.translation
+            pin.forwardKinematics(self.model, self.data, self.thetalist)
+            pin.updateFramePlacements(self.model, self.data)
+            self.jacobian = pin.computeFrameJacobian(self.model, self.data, self.thetalist, self.frame_id, pin.ReferenceFrame.WORLD)
+            self.ee_pose = self.data.oMf[self.frame_id]
+            self.ee_pos = self.ee_pose.translation
             # self.ee_ort = pin.Quaternion(self.ee_pose.rotation)
-            #print(self.ee_pos)
+            print(self.ee_pos)
             # print(self.ee_ort)
             #  R =
             # -0.000568947     0.992678    -0.120792
@@ -243,11 +243,19 @@ class ForceControlClientSubscriber:
         M = pin.crba(self.model, self.data, self.thetalist)
         # Control acceleration (PD+I law)
         tau_ff2 = M @ (self.Kp * e + self.Kd * (self.dthetalistd - self.dthetalist) + self.Ki * self.eint)
-        # Nonlinear effects (Coriolis + Gravity)
+        # # Nonlinear effects (Coriolis + Gravity)
         # error = np.zeros(6)
         # error[:3] = self.ee_pos - self.ee_pos_d
-        # F_ee_des = -self.cartesian_stiffness_target @ error
-        # tau_ff2 = self.jacobian.T @ F_ee_des
+        # print("error",error)
+        # v_ee = pin.getFrameVelocity(self.model, self.data, self.frame_id, pin.ReferenceFrame.WORLD).linear
+        # F_lin = -self.cartesian_stiffness_target[:3, :3] @ error[:3] - self.cartesian_damping_target[:3, :3] @ v_ee
+        # # Construct full 6D force vector
+        # F_ee_des = np.zeros(6)
+        # F_ee_des[:3] = F_lin  # Force part
+        # # F_ee_des[3:] = 0      # No torque control (optional, explicit)
+        # print("F", F_ee_des)
+        # tau_ff3 = self.jacobian.T @ F_ee_des
+        # print("tau_ff3", tau_ff3)
         tau_inv_dyn2 = pin.rnea(self.model, self.data, self.thetalist, self.dthetalist, np.zeros(JOINT_SIZE))
         # tau = tau_ff1 + tau_inv_dyn1
         tau = tau_ff2 + tau_inv_dyn2
